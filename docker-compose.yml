@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  test:
+    image: typeorm/tree-issue:latest
+    networks:
+      - database
+    restart: always
+  database:
+    image: postgres:10.5
+    environment:
+      POSTGRES_DB: typeorm
+    networks:
+      - database
+
+networks:
+  database: {}
