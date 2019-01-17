@@ -1,4 +1,4 @@
-# typeorm-tree-issue
+# typeorm-issue
 
 Run the application and check the logs:
 
