@@ -4,70 +4,78 @@ import {
   createConnection,
   Entity,
   getManager,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
   PrimaryColumn,
-  Tree,
-  TreeChildren,
-  TreeParent,
 } from 'typeorm';
-import { v4 as uuid } from 'uuid';
 
-@Entity({ name: 'users', schema: 'admin' })
-@Tree('nested-set')
-class UserModel {
+@Entity()
+export class User {
+	@PrimaryGeneratedColumn('uuid')
+	id: string;
+}
+
+@Entity()
+export class Party {
+	@PrimaryGeneratedColumn('uuid')
+	id: string;
+
+	@OneToMany(type => Guests, user => user.party)
+  guests: User[];
+}
+
+@Entity()
+export class Guests {
+  @ManyToOne(type => User, {
+    cascade: true,
+    nullable: false,
+  })
   @PrimaryColumn('uuid')
-  public id: string;
-  @Column({ nullable: false })
-  public email: string;
+  user: User;
 
-  @TreeParent()
-  public manager: UserModel;
+  @ManyToOne(type => Party, {
+    cascade: true,
+    nullable: false,
+  })
+  @PrimaryColumn('uuid')
+  party: Party;
 
-  @TreeChildren()
-  public managerOf: UserModel[];
+  @Column({
+    default: false
+  })
+  confirmed: boolean;
 }
 
 const run = async () => {
   try {
-    const connection = await createConnection({
+    await createConnection({
+      dropSchema: true,
       entities: [
-        UserModel,
+        User,
+        Party,
+        Guests
       ],
-      logging: ['error', 'query', 'schema'],
+      logging: ['error', 'query'],
+      synchronize: true,
       type: 'postgres',
       url: 'postgres://postgres:postgres@database:5432/typeorm',
     });
-    await connection.query('CREATE SCHEMA IF NOT EXISTS admin');
-    await connection.synchronize();
     const manager = getManager();
 
-    const a1 = new UserModel();
-    a1.id = uuid();
-    a1.email = 'a1@test.com';
-    await manager.save(a1);
+    const user1 = new User();
+    await manager.save(user1);
+    const user2 = new User();
+    await manager.save(user2);
+    const user3 = new User();
+    await manager.save(user3);
 
-    const a11 = new UserModel();
-    a11.id = uuid();
-    a11.email = 'a11@test.com';
-    a11.manager = a1;
-    await manager.save(a11);
+    const party = new Party();
+    party.guests = [user1, user3];
 
-    const a12 = new UserModel();
-    a12.id = uuid();
-    a12.email = 'a12@test.com';
-    a12.manager = a1;
-    await manager.save(a12);
-
-    const a111 = new UserModel();
-    a111.id = uuid();
-    a111.email = 'a111@test.com';
-    a111.manager = a11;
-    await manager.save(a111);
-
-    const a112 = new UserModel();
-    a112.id = uuid();
-    a112.email = 'a112@test.com';
-    a112.manager = a11;
-    await manager.save(a112);
+    // I would expect this to create an entry
+    // in Party and two entries in Guests
+    await manager.save(party);
   } catch (err) {
     console.log(`Error ${err}`);
     process.exit(1);
