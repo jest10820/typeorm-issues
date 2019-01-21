@@ -5,40 +5,47 @@ import {
   Entity,
   getManager,
   ManyToOne,
-  OneToMany,
   PrimaryGeneratedColumn,
-  PrimaryColumn,
+  Index,
+  OneToMany,
 } from 'typeorm';
 
-@Entity()
+@Entity({ name: 'user' })
 export class User {
 	@PrimaryGeneratedColumn('uuid')
 	id: string;
 }
 
-@Entity()
+@Entity({ name: 'party' })
 export class Party {
 	@PrimaryGeneratedColumn('uuid')
 	id: string;
 
-	@OneToMany(type => Guests, user => user.party)
-  guests: User[];
+  @OneToMany(type => Guests, guest => guest.party, {
+    nullable: true,
+    cascade: true,
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE',
+  })
+  guests: User[] | null;
 }
 
-@Entity()
+@Entity({ name: 'guests' })
+@Index((relation: Guests) => [relation.user, relation.party], { unique: true })
 export class Guests {
-  @ManyToOne(type => User, {
-    cascade: true,
+  @PrimaryGeneratedColumn('uuid')
+  public id: string;
+
+  @ManyToOne(type => User, user => user.id, {
     nullable: false,
+    primary: true,
   })
-  @PrimaryColumn('uuid')
   user: User;
 
-  @ManyToOne(type => Party, {
-    cascade: true,
+  @ManyToOne(type => Party, party => party.id, {
     nullable: false,
+    primary: true,
   })
-  @PrimaryColumn('uuid')
   party: Party;
 
   @Column({
@@ -73,9 +80,16 @@ const run = async () => {
     const party = new Party();
     party.guests = [user1, user3];
 
+    console.log(party);
     // I would expect this to create an entry
     // in Party and two entries in Guests
-    await manager.save(party);
+    const myParty = await manager.save(party);
+    console.log(myParty);
+
+    const myPartyGuests = await manager.findOne(Party, myParty.id, {
+      relations: ['guests']
+    });
+    console.log(myPartyGuests);
   } catch (err) {
     console.log(`Error ${err}`);
     process.exit(1);
